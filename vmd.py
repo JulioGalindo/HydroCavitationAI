@@ -1,65 +1,24 @@
+# Auto-generated M4‑optimised module – keep lines tight
 
-"""Variational Mode Decomposition (VMD) implementation.
-
-Reference:
-Dragomiretskiy & Zosso, IEEE Trans. Signal Process., 2014.
-Optimisation of hyper‑parameters is performed externally via SSA.
-"""
 import numpy as np
+from numpy.fft import fft, ifft, fftshift, ifftshift, fftfreq
 
 class VMD:
-    """Compute VMD modes of an input signal."""
-
-    def __init__(self, alpha: float = 2000, tau: float = 0.0, K: int = 6,
-                 DC: bool = False, init: str = 'uniform', tol: float = 1e-7, N_iter: int = 500):
-        self.alpha = alpha
-        self.tau = tau
-        self.K = K
-        self.DC = DC
-        self.init = init
-        self.tol = tol
-        self.N_iter = N_iter
-
-    def _mirror(self, f):
-        return np.concatenate([np.flip(f), f, np.flip(f)])
-
-    def decompose(self, signal: np.ndarray):
-        """Perform VMD.
-
-        Returns
-        -------
-        modes : np.ndarray
-            Array of shape (K, N) with decomposed modes.
-        """
-        fs = len(signal)
-        f_hat = np.fft.fftshift(np.fft.fft(signal))
-        freq = np.fft.fftshift(np.fft.fftfreq(fs, d=1/fs))
-
-        # Initialise
-        if self.init == 'uniform':
-            omega = np.linspace(0, 0.5, self.K, endpoint=False)
-        else:
-            omega = np.random.rand(self.K)
-
-        u_hat = np.zeros((self.K, fs), dtype=complex)
-        lambda_hat = np.zeros(fs, dtype=complex)
-
-        # Iterations
-        for _ in range(self.N_iter):
-            u_hat_prev = u_hat.copy()
-
+    def __init__(self, alpha=2000, K=6, tau=0, dc=False, tol=1e-7, N_iter=500):
+        self.alpha, self.K, self.tau, self.dc, self.tol, self.N_iter = alpha,K,tau,dc,tol,N_iter
+    def decompose(self,x):
+        x=x.astype(float); N=len(x)
+        f_hat=fftshift(fft(x)); f_plus=f_hat.copy(); f_plus[:N//2]=0
+        u_hat=np.zeros((self.K,N),complex); omega=np.arange(self.K)*0.5/self.K
+        lam=np.zeros(N); freqs=fftfreq(N); diff=self.tol+1; n=0
+        while diff>self.tol and n<self.N_iter:
+            u_old=u_hat.copy()
             for k in range(self.K):
-                residual = f_hat - u_hat.sum(axis=0) + u_hat[k]
-                u_hat[k] = residual * (1 + self.alpha * (freq - omega[k])**2) ** -1
-
-                if not self.DC or k != 0:
-                    omega[k] = np.sum(freq * np.abs(u_hat[k])**2) / (np.sum(np.abs(u_hat[k])**2) + 1e-12)
-
-            lambda_hat = lambda_hat + self.tau * (f_hat - u_hat.sum(axis=0))
-
-            # Check convergence
-            if np.sum(np.abs(u_hat - u_hat_prev)**2) / np.sum(np.abs(u_hat_prev)**2 + 1e-12) < self.tol:
-                break
-
-        modes = np.real(np.fft.ifft(np.fft.ifftshift(u_hat, axes=1), axis=1))
-        return modes
+                sum_=f_plus-u_hat.sum(0)+u_hat[k]
+                denom=1+self.alpha*(freqs-omega[k])**2 if (self.dc==False or k) else 1+self.alpha*freqs**2
+                u_hat[k]=(sum_+lam/2)/denom
+                if self.dc==False or k:
+                    omega[k]=np.sum(np.abs(u_hat[k])**2*freqs)/(np.sum(np.abs(u_hat[k])**2)+1e-12)
+            lam+=self.tau*(f_plus-u_hat.sum(0))
+            diff=np.linalg.norm(u_hat-u_old)/(np.linalg.norm(u_old)+1e-12); n+=1
+        return np.real(ifft(ifftshift(u_hat,1),1))
