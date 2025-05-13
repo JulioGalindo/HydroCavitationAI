@@ -1,9 +1,18 @@
+# Numerical and scientific stack
+numpy           # core N-dimensional array object
+scipy           # scientific routines: signal filters, STFT, etc.
+pandas          # tabular data manipulation (metrics logging)
+matplotlib      # plots for confusion-matrix and ROC curves
 
-numpy
-scipy
-pandas
-matplotlib
-torch>=1.10
-scikit-learn
-soundfile
-pywavelets
+# Machine / deep learning
+torch>=1.10     # PyTorch for the MSCNN model (GPU/CPU)
+scikit-learn    # evaluation metrics: accuracy, ROC, confusion matrix
+
+# Signal processing extras
+pywavelets      # wavelet ops (optional, used alongside VMD)
+
+# Audio and file I/O
+soundfile       # read/write .wav files (simulate_data.py, CLI)
+
+# Configuration handling
+pyyaml          # load YAML configs (config.yaml)
