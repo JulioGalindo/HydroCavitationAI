@@ -4,7 +4,7 @@
 
 Cavitation is a complex physical phenomenon occurring in liquid flow systems when the local static pressure drops below the liquid's vapor pressure at a constant temperature. This pressure drop leads to the formation of vapor-filled cavities or bubbles within the liquid. As these bubbles are transported by the flow into regions of higher pressure, they collapse violently. This implosion generates localized, high-intensity pressure waves (shockwaves) and micro-jets, which can cause significant problems in hydraulic machinery, particularly in hydraulic turbines [40, 41].
 
-**The Problem of Cavitation in Hydraulic Turbines:**
+### The Problem of Cavitation in Hydraulic Turbines:
 
 Hydraulic turbines, such as Francis, Kaplan, and Pelton types, are critical components in hydroelectric power generation. They are designed to operate optimally at specific design points (Best Efficiency Point - BEP). However, modern grid demands, driven by the integration of intermittent renewable energy sources (solar, wind), often require turbines to operate under off-design conditions, including partial load, overload, and frequent start-stops [65, 66]. These off-design operations significantly increase the likelihood and severity of cavitation.
 
@@ -15,7 +15,7 @@ The detrimental effects of cavitation in hydraulic turbines are multifaceted:
 3.  **Vibration and Noise:** The collapse of cavitation bubbles is a noisy process, generating broadband acoustic emissions and inducing vibrations in the turbine structure and connected systems [4, 22, 23]. These vibrations can lead to fatigue damage, loosening of components, and an overall reduction in the operational stability and lifespan of the machine.
 4.  **Operational Instabilities:** Certain types of cavitation, such as draft tube swirl (vortex rope) at part load or overload conditions, can lead to severe pressure pulsations and power swings, threatening the stability of both the turbine and the electrical grid [65, 66].
 
-**Need for Detection:**
+### Need for Detection:
 
 Given the adverse effects, early and accurate detection of cavitation is crucial for:
 * **Preventive Maintenance:** Identifying incipient cavitation allows for timely maintenance interventions, preventing extensive damage and costly repairs or replacements.
@@ -25,7 +25,7 @@ Given the adverse effects, early and accurate detection of cavitation is crucial
 
 Traditional methods for cavitation detection include visual inspection (often limited to model tests), performance drop analysis (which detects already developed cavitation), acoustic methods (listening for characteristic crackling sounds), and vibration analysis [4, 23, 40]. However, these methods can be subjective, late in detection, or struggle with complex noise and vibration signatures in operational environments.
 
-**Neural Networks for Cavitation Detection:**
+### Neural Networks for Cavitation Detection:
 
 Neural networks (NNs), a subset of machine learning, have emerged as powerful tools for pattern recognition and classification in complex systems. Their ability to learn intricate relationships from data makes them well-suited for analyzing the complex, non-stationary, and noisy signals associated with cavitation (e.g., hydroacoustic emissions, vibrations, pressure pulsations) [4, 6, 8, 23].
 
@@ -44,29 +44,30 @@ This section details prominent neural network-based methodologies and associated
 
 This hybrid approach combines advanced signal decomposition techniques (SSA and VMD) with a Multi-Scale Convolutional Neural Network (MSCNN) for diagnosing cavitation states in hydro turbines, particularly focusing on multi-state classification [4].
 
-**a. Principles:**
+#### a. Principles:
 The core idea is to first denoise and decompose the raw hydroacoustic signal into a set of Intrinsic Mode Functions (IMFs) that represent different oscillatory components. SSA is used as a pre-processing step to enhance the main signal components before VMD. VMD then adaptively decomposes the SSA-enhanced signal into a finite number of IMFs, each with a specific center frequency and bandwidth. These IMFs, which ideally separate different signal characteristics (including cavitation signatures and noise), are then fed as parallel input channels to an MSCNN. The MSCNN learns features from each IMF at multiple scales and then fuses these features for the final classification of the cavitation state.
 
-**b. Mathematical Formulations:**
+#### b. Mathematical Formulations:
 
-* **Singular Spectrum Analysis (SSA):**
-    SSA is a non-parametric technique for time series analysis that decomposes a time series into a sum of identifiable components such as trend, oscillations, and noise. The main steps are [2, 3 (SSA tutorial), 54]:
+##### Singular Spectrum Analysis (SSA):
+
+SSA is a non-parametric technique for time series analysis that decomposes a time series into a sum of identifiable components such as trend, oscillations, and noise. The main steps are [2, 3 (SSA tutorial), 54]:
     1.  **Embedding:** Convert the 1D time series $X = (x_1, ..., x_N)$ into a trajectory matrix $\mathbf{X}$ of dimension $L \times K$, where $L$ is the window length (embedding dimension) and $K = N - L + 1$.
-        ```math
-        \mathbf{X} = \begin{pmatrix}
-        x_1 & x_2 & \cdots & x_K \\
-        x_2 & x_3 & \cdots & x_{K+1} \\
-        \vdots & \vdots & \ddots & \vdots \\
-        x_L & x_{L+1} & \cdots & x_N
-        \end{pmatrix}
-        ```
-        * $X$: Original 1D time series (scalar values).
-        * $N$: Length of the time series (scalar, integer).
-        * $L$: Window length or embedding dimension (scalar, integer). Chosen by the user, typically $2 \le L \le N/2$.
-        * $K$: Number of columns in the trajectory matrix (scalar, integer).
-        * $\mathbf{X}$: Trajectory matrix (matrix of scalars).
+```math
+\mathbf{X} = \begin{pmatrix}
+x_1 & x_2 & \cdots & x_K \\
+x_2 & x_3 & \cdots & x_{K+1} \\
+\vdots & \vdots & \ddots & \vdots \\
+x_L & x_{L+1} & \cdots & x_N
+\end{pmatrix}
+```
+   * $X$: Original 1D time series (scalar values).
+   * $N$: Length of the time series (scalar, integer).
+   * $L$: Window length or embedding dimension (scalar, integer). Chosen by the user, typically $2 \le L \le N/2$.
+   * $K$: Number of columns in the trajectory matrix (scalar, integer).
+   * $\mathbf{X}$: Trajectory matrix (matrix of scalars).
 
-    2.  **Singular Value Decomposition (SVD):** Decompose the covariance matrix of the trajectory matrix, $\mathbf{S} = \mathbf{X}\mathbf{X}^T$. Let $\lambda_1 \ge \lambda_2 \ge \dots \ge \lambda_L$ be the eigenvalues of $\mathbf{S}$, and $\mathbf{U}_1, \dots, \mathbf{U}_L$ be the corresponding eigenvectors (left singular vectors of $\mathbf{X}$). The principal components (PCs) $\mathbf{V}_i$ (right singular vectors) can be obtained. The SVD of $\mathbf{X}$ is $\mathbf{X} = \sum_{i=1}^{d} \sigma_i \mathbf{U}_i \mathbf{V}_i^T = \sum_{i=1}^{d} \mathbf{X}_i$, where $d = \text{rank}(\mathbf{X})$, $\sigma_i$ are the singular values ($\sqrt{\lambda_i}$), and $\mathbf{X}_i$ are elementary matrices.
+### 2.  **Singular Value Decomposition (SVD):** Decompose the covariance matrix of the trajectory matrix, $\mathbf{S} = \mathbf{X}\mathbf{X}^T$. Let $\lambda_1 \ge \lambda_2 \ge \dots \ge \lambda_L$ be the eigenvalues of $\mathbf{S}$, and $\mathbf{U}_1, \dots, \mathbf{U}_L$ be the corresponding eigenvectors (left singular vectors of $\mathbf{X}$). The principal components (PCs) $\mathbf{V}_i$ (right singular vectors) can be obtained. The SVD of $\mathbf{X}$ is $\mathbf{X} = \sum_{i=1}^{d} \sigma_i \mathbf{U}_i \mathbf{V}_i^T = \sum_{i=1}^{d} \mathbf{X}_i$, where $d = \text{rank}(\mathbf{X})$, $\sigma_i$ are the singular values ($\sqrt{\lambda_i}$), and $\mathbf{X}_i$ are elementary matrices.
         * $\mathbf{S}$: Covariance matrix of size $L \times L$ (matrix of scalars).
         * $\lambda_i$: Eigenvalues (scalar).
         * $\sigma_i$: Singular values (scalar).
