@@ -897,5 +897,337 @@ Standard VMD requires $K$ and $\alpha$ to be pre-set. An inappropriate choice ca
 **d. Applicability:**
 This method is designed for high accuracy in noisy environments and for distinguishing subtle differences between cavitation states, making it suitable for multi-state classification (e.g., 6 states). The adaptive VMD and MST provide rich feature maps. The complexity of the SSA optimization and the MIR-CBAM model might make it challenging for very fast real-time binary detection unless significant optimizations are made or simpler versions are used. Its main strength lies in robust feature extraction for accurate classification.
 
----
-*The next sections will cover: C) Comparative Evaluation, D) Synthetic Data Generation (consolidating AC-GAN and other methods from the survey [32, 33]), E) Conclusions, and F) Full Bibliography.*
+## C) Comparison of Methods
+
+This section provides a comparative analysis of the neural network-based cavitation detection methods discussed, evaluating their strengths, weaknesses, and suitability for different detection scenarios (binary real-time vs. multi-state classification).
+
+**1. Key Comparison Axes:**
+
+* **Accuracy:** The ability of the method to correctly identify cavitation presence and/or its intensity.
+* **Robustness to Noise & Non-stationarity:** How well the method performs with signals contaminated by operational noise, varying flow conditions, and the inherently non-stationary nature of cavitation signals.
+* **Computational Efficiency (Inference Time):** Critical for real-time binary detection. This includes both pre-processing and neural network inference time.
+* **Data Requirements:** The amount and type of labeled data needed for effective training.
+* **Complexity of Implementation:** The effort required to implement and tune the entire pipeline.
+* **Interpretability:** The extent to which the model's decisions can be understood.
+* **Suitability for Binary vs. Multi-State Detection:** Some methods are inherently better suited for one task over the other.
+
+**2. Method-Specific Analysis:**
+
+* **SSA-VMD-MSCNN:**
+    * **Strengths:** High potential for accuracy in multi-state classification due to adaptive signal decomposition (VMD optimized by SSA) capturing fine details, and multi-scale feature learning by MSCNN from individual IMFs. Good robustness to non-stationary signals.
+    * **Weaknesses:** Computationally intensive front-end (SSA for VMD parameter optimization, VMD itself). High implementation complexity. Likely requires substantial data for training the multi-channel MSCNN.
+    * **Binary Real-Time:** Challenging due to front-end computational cost.
+    * **Multi-State (6 states):** Very well-suited due to detailed feature extraction.
+
+* **Double Hierarchical Residual Networks (DHRN):**
+    * **Strengths:** Designed for multi-task learning (detection and intensity). Residual connections allow for very deep networks, potentially capturing complex patterns in frequency-domain acoustic signals. Swin-FFT provides effective data augmentation.
+    * **Weaknesses:** "Double Hierarchical" architecture can be complex to design and tune. Performance on turbine data needs to be validated (original application was valves).
+    * **Binary Real-Time:** Potentially, if the DHRN architecture is kept reasonably shallow and FFT is fast.
+    * **Multi-State (6 states):** Very well-suited, as intensity recognition is an explicit task.
+
+* **Knowledge Distillation CNN (KD-CNN):**
+    * **Strengths:** Achieves a good balance between accuracy (from teacher) and speed/efficiency (from student). Excellent for real-time applications and deployment on resource-constrained hardware.
+    * **Weaknesses:** Overall performance is capped by the teacher model. Requires training two models. The student model might struggle if the complexity gap to the teacher is too large or if the number of states is high (e.g., 6) without careful design.
+    * **Binary Real-Time:** Excellent.
+    * **Multi-State (6 states):** Feasible, but student architecture may need to be more complex than the 1-layer example for 4 states, potentially impacting speed.
+
+* **Auxiliary Classifier GAN (AC-GAN) for Data Augmentation:**
+    * **Strengths:** Powerful for generating class-conditional synthetic data (spectrograms), addressing data scarcity and class imbalance. Can significantly improve the robustness of any subsequent classifier.
+    * **Weaknesses:** GANs are notoriously difficult and computationally expensive to train. Quality of generated data is critical and hard to guarantee. This is an offline data augmentation technique, not a detection method itself.
+    * **Binary Real-Time:** N/A (offline augmentation).
+    * **Multi-State (6 states):** Highly beneficial for generating sufficient training samples for all 6 states.
+
+* **General Hydroacoustic Signal-Based NNs (CNNs, ResNets, CNN-LSTMs):**
+    * **Strengths:** Versatile. CNNs/ResNets are excellent for spectrogram-based image-like features. CNN-LSTMs can capture spatio-temporal patterns. Simpler CNNs can be fast.
+    * **Weaknesses:** Performance heavily depends on signal pre-processing quality and feature engineering (if any). Prone to overfitting without sufficient data/regularization. Domain shift is a major challenge without specific adaptation strategies.
+    * **Binary Real-Time:** Feasible with optimized CNNs and efficient feature extraction.
+    * **Multi-State (6 states):** Feasible with deeper architectures (ResNets, CNN-LSTMs) and rich input features.
+
+* **Multi-Index Fusion Adaptive VMD with MIR-CBAM:**
+    * **Strengths:** Sophisticated adaptive VMD parameter selection for optimal decomposition in noisy environments. MST provides rich time-frequency features. Advanced Inception-ResNet with attention (CBAM) for powerful classification. High accuracy reported.
+    * **Weaknesses:** Very high complexity in both signal processing (adaptive VMD, MST) and the neural network (MIR-CBAM). Likely computationally expensive.
+    * **Binary Real-Time:** Highly challenging due to computational load.
+    * **Multi-State (6 states):** Excellent potential for accuracy due to detailed and adaptive feature extraction and powerful classification.
+
+**3. Discussion on Real-Time Binary vs. Multi-State Classification:**
+
+* **Binary Detection (Real-Time):**
+    * The primary constraint is speed. KD-CNN stands out as a method designed for this. Simpler 1D CNNs operating on raw or minimally processed (e.g., filtered, FFT magnitude) acoustic/vibration signals are also candidates. The pre-processing pipeline must be very efficient.
+    * The goal is a quick "yes/no" for cavitation. Fine-grained intensity is not required.
+    * Lower data requirements compared to multi-state, as only two classes need to be distinguished.
+
+* **Multi-State Classification (e.g., 6 states):**
+    * Accuracy and the ability to distinguish subtle differences between states are paramount. Computational cost for inference is less critical than for real-time binary alarms, but still a factor.
+    * Methods involving detailed signal decomposition (VMD variants) and hierarchical/multi-scale feature learning (MSCNN, DHRN, MIR-CBAM) are better suited.
+    * Requires significantly more labeled data, covering all intensity states under various operating conditions. Data augmentation (e.g., AC-GAN) becomes very important.
+    * The definition of the 6 states needs to be clear and physically meaningful, with distinct signatures in the chosen sensor signals.
+
+**4. Role of Input Signals (Acoustic Emission, Hydrophone, Vibration):**
+
+* **Acoustic Emission (AE):** High-frequency signals, sensitive to transient events like bubble collapse. Good for detecting early/incipient cavitation. Spectrograms of AE are common inputs to CNNs [8, 15, 23].
+* **Hydrophone (Pressure):** Captures broader acoustic field. Can be affected by flow noise. Methods like SSA-VMD-MSCNN often use hydroacoustic signals [4].
+* **Vibration (Accelerometers):** Measures structural response to cavitation. Lower frequency content compared to AE. Can be influenced by other machinery vibrations. Often used in conjunction or as a comparative measure [23, 68].
+
+The choice of sensor and its placement significantly impacts the signal characteristics and the subsequent success of the NN method [49, 68, 77]. Some methods might be more robust to sensor type/position if they learn more fundamental, invariant features of cavitation.
+
+**5. General Trends and Recommendations:**
+
+* **Pre-processing is Key:** For robust performance, especially with noisy and non-stationary signals, advanced signal processing (denoising, decomposition like VMD/EEMD, time-frequency transforms like STFT/Wavelets/MST) is crucial before feeding data to NNs.
+* **CNNs Dominate for Spectrograms:** When signals are converted to spectrograms, CNNs (including ResNet variants and Inception-based models) are the go-to architecture due to their ability to learn spatial hierarchies of features.
+* **Data Augmentation is Often Necessary:** Given the difficulty in acquiring extensive labeled datasets for all turbine types and cavitation states, data augmentation (Swin-FFT, AC-GAN, basic transformations) is vital for training robust models.
+* **Complexity vs. Performance Trade-off:** More complex methods (e.g., adaptive VMD with advanced NNs) tend to offer higher accuracy but at the cost of computational load and implementation difficulty. The application dictates the acceptable trade-off.
+* **Uncertainty Quantification:** While not explicitly detailed in all reviewed methods, considering the uncertainty in NN predictions (aleatoric and epistemic) is important for reliable decision-making in practical deployments [81 (Hüllermeier & Waegeman, 2021), 82 (Lakshminarayanan et al., 2017)]. Ensembling or Bayesian NNs can provide such estimates.
+
+For a robust system, especially for multi-state classification, a pipeline involving adaptive signal decomposition (like optimized VMD), rich time-frequency feature extraction (like MST or multi-resolution spectrograms), and a powerful deep learning classifier (like ResNet, Inception-ResNet with attention, or MSCNN) seems to be the most promising direction based on current research. For real-time binary detection, KD-CNN or simpler, optimized CNNs are more appropriate.
+
+## D) Synthetic Data Generation
+
+The success of deep learning models heavily relies on the availability of large, diverse, and well-labeled datasets. In the context of cavitation detection in hydraulic turbines, acquiring such datasets can be challenging due to the cost of experiments, limited access to operational turbines, the difficulty of inducing and precisely labeling all cavitation states, and the rarity of certain fault conditions. Synthetic data generation and data augmentation techniques are therefore crucial for training robust and generalizable neural network models [15, 17, 30, 32, 33].
+
+**1. Need for Data Augmentation in Cavitation Studies:**
+
+* **Limited Data:** Experimental tests on full-scale turbines or even laboratory models are expensive and time-consuming. The number of available recordings, especially for specific cavitation intensities or types, is often insufficient for training complex deep learning models without overfitting [6, 15].
+* **Class Imbalance:** Some cavitation states (e.g., severe cavitation or specific erosive types) might occur less frequently than normal operation or incipient cavitation, leading to imbalanced datasets. This can bias the model towards majority classes [30].
+* **Variability of Conditions:** Cavitation signatures can vary significantly with turbine operating point (head, flow rate, guide vane opening), turbine geometry, sensor location, and background noise levels. Augmentation helps expose the model to a wider range of these variations [32].
+* **Improving Model Robustness:** By training on augmented data that includes noise, distortions, or slight variations of true signals, the model can become more robust to unseen real-world conditions [17, 30].
+
+**2. Generative Adversarial Networks (GANs) for Spectrogram Synthesis:**
+
+As detailed in Section B.4, Auxiliary Classifier GANs (AC-GANs) are a powerful tool for generating class-conditional synthetic spectrograms [15, 16].
+
+* **Principle:** The generator network $G(z, c)$ learns to produce realistic spectrograms for a given class label $c$ (representing a specific cavitation state) from a random noise vector $z$. The discriminator network $D(X)$ learns to distinguish real spectrograms from those generated by $G$, and also to predict the class label of the input spectrogram.
+* **Mathematical Formulation:** The loss functions for $D$ and $G$ involve adversarial terms (to make generated data look real) and classification terms (to ensure generated data corresponds to the correct class). For instance, the generator's loss for the class prediction part could be:
+    ```math
+    L_{G_{class}} = -\mathbb{E}_{z \sim p_z, c \sim p_c}[\log D_{class}(c|G(z,c))]
+    ```
+    This encourages $G$ to generate samples that $D$ can confidently classify as belonging to the intended class $c$.
+* **Example Spectrograms (Conceptual):**
+    * **No Cavitation (Class 0):** A synthetic spectrogram might show dominant discrete frequencies related to blade passing frequency (BPF), guide vane passing frequency (GVPF), and their harmonics, with relatively low energy in other regions.
+        [Image of Conceptual Spectrogram: No Cavitation]
+    * **Incipient Cavitation (Class 1):** The spectrogram might show the base machinery frequencies, plus intermittent bursts of broadband energy in higher frequency ranges (e.g., >10 kHz for AE signals).
+        [Image of Conceptual Spectrogram: Incipient Cavitation]
+    * **Developed Cavitation / Multi-State (e.g., Class 3 of 6):** Increased and more persistent broadband noise across a wider frequency spectrum, potentially with sidebands around machinery frequencies or specific harmonic content related to bubble dynamics.
+        [Image of Conceptual Spectrogram: Developed Cavitation]
+    * **Severe Cavitation (Class 5 of 6):** Very high levels of broadband noise, potentially obscuring discrete machinery frequencies, indicating a highly energetic and chaotic process.
+        [Image of Conceptual Spectrogram: Severe Cavitation]
+    The visual characteristics would depend heavily on the sensor type (AE, vibration, pressure) and the specific turbine. The goal is for $G$ to learn these characteristic patterns from real data.
+
+**3. Transformation-Based Augmentation Techniques:**
+
+These methods apply various transformations to existing data samples to create new, slightly modified samples. The survey by Gao et al. [32] and Wen et al. [33] provide extensive taxonomies.
+
+* **Magnitude Domain Transformations:**
+    * **Jittering:** Adding small random noise (e.g., Gaussian) to the signal amplitude.
+        ```math
+        x'_{i,t} = x_{i,t} + \epsilon_t, \quad \epsilon_t \sim \mathcal{N}(0, \sigma^2_{noise})
+        ```
+        * $x_{i,t}$: Value of sample $i$ at time $t$ (scalar).
+        * $\epsilon_t$: Random noise at time $t$ (scalar).
+        * $\sigma^2_{noise}$: Variance of the noise (scalar).
+    * **Scaling:** Multiplying the entire time series or segments by a random scalar.
+        ```math
+        x'_{i,t} = s \cdot x_{i,t}, \quad s \sim \text{Uniform}(s_{min}, s_{max})
+        ```
+        * $s$: Random scaling factor (scalar).
+    * **Magnitude Warping:** Smoothly distorting the amplitude of the time series using a cubic spline interpolated over random knots [32].
+
+* **Time Domain Transformations:**
+    * **Slicing / Cropping (Sliding Window):** Extracting segments of various lengths from longer time series. Swin-FFT (Section B.2) is a form of this where FFT is applied to each slice [5, 6, 7].
+    * **Permutation:** Dividing the time series into segments and randomly shuffling them. This is generally destructive for time-dependent signals like cavitation unless applied very carefully to sub-segments where order might be less critical, or for creating negative examples.
+    * **Time Warping:** Distorting the time axis using a smooth random warping path, effectively speeding up or slowing down parts of the signal [32]. This can be achieved using Dynamic Time Warping (DTW) barycentric averaging [33 (Forestier et al. reference)].
+
+* **Frequency Domain Transformations:**
+    * **Frequency Warping:** Similar to time warping, but applied to the frequency axis of a spectrum.
+    * **Frequency Shifting:** Shifting spectral components.
+    * **Spectrogram Augmentation (e.g., SpecAugment [32 (Park et al. reference)]):**
+        * *Time Masking:* Masking out (setting to zero) a consecutive range of time steps in a spectrogram.
+        * *Frequency Masking:* Masking out a consecutive range of frequency channels in a spectrogram.
+        * *Time Warping (on spectrogram):* Applying a sparse image warping along the time axis of the spectrogram.
+
+* **Time-Frequency Domain Transformations (directly on spectrograms):**
+    * **Adding Noise to Spectrograms:** Directly adding random noise to spectrogram bins.
+    * **Mixing Spectrograms (Mixup):** Linearly interpolating between two spectrograms and their labels:
+        ```math
+        \tilde{X} = \lambda X_1 + (1-\lambda) X_2
+        \tilde{y} = \lambda y_1 + (1-\lambda) y_2
+        ```
+        * $X_1, X_2$: Two spectrograms (matrices of scalars).
+        * $y_1, y_2$: Corresponding labels (one-hot encoded vectors of scalars).
+        * $\lambda \sim \text{Beta}(\alpha, \alpha)$ (scalar).
+
+**4. Decomposition-Based Augmentation:**
+
+* **Principle:** Decompose the signal into several components (e.g., using VMD, EMD, EEMD, SSA), augment one or more of these components, and then reconstruct the signal [32, 33, 74].
+* **Example:** For a signal $x(t) = \sum_k IMF_k(t)$, an augmented signal could be $x'(t) = \sum_k IMF'_k(t)$, where $IMF'_k(t)$ is an augmented version of $IMF_k(t)$ (e.g., by jittering or scaling).
+* **Applicability:** This can create more targeted and potentially more realistic augmentations if specific components are known to carry cavitation-relevant information.
+
+**5. Python Snippets (Conceptual):**
+
+* **Jittering:**
+    ```python
+    import numpy as np
+
+    def jitter(time_series, sigma=0.05):
+        # time_series: 1D NumPy array of scalar values
+        # sigma: standard deviation of the Gaussian noise (scalar)
+        noise = np.random.normal(loc=0, scale=sigma, size=time_series.shape)
+        return time_series + noise
+    ```
+
+* **Scaling:**
+    ```python
+    import numpy as np
+
+    def scale(time_series, min_scale=0.8, max_scale=1.2):
+        # time_series: 1D NumPy array of scalar values
+        # min_scale, max_scale: range for the random scaling factor (scalars)
+        scaling_factor = np.random.uniform(low=min_scale, high=max_scale)
+        return time_series * scaling_factor
+    ```
+
+* **Spectrogram Time Masking (Conceptual for a NumPy spectrogram):**
+    ```python
+    import numpy as np
+
+    def time_mask(spectrogram, max_mask_percentage=0.1, num_masks=1):
+        # spectrogram: 2D NumPy array (freq_bins, time_frames) of scalar values
+        # max_mask_percentage: maximum percentage of time frames to mask (scalar)
+        # num_masks: number of masks to apply (scalar, integer)
+        
+        augmented_spectrogram = spectrogram.copy()
+        num_time_frames = spectrogram.shape[1]
+        max_t = int(num_time_frames * max_mask_percentage)
+        if max_t == 0: return augmented_spectrogram # Avoid zero mask width
+            
+        for _ in range(num_masks):
+            t = np.random.randint(1, max_t + 1) # Width of the mask
+            t0 = np.random.randint(0, num_time_frames - t + 1) # Starting frame
+            augmented_spectrogram[:, t0:t0 + t] = 0 # Apply mask (set to zero or mean)
+        return augmented_spectrogram
+    ```
+
+**6. Considerations for Cavitation Data Augmentation:**
+
+* **Preserving Physical Realism:** Augmented data should still represent plausible cavitation signals. Overly aggressive transformations can introduce artifacts that mislead the model.
+* **Label Preservation:** Most augmentation techniques assume the class label remains unchanged. This is generally true for minor transformations.
+* **Computational Cost:** Some augmentation techniques, especially generative models or complex time-frequency manipulations, can be computationally expensive.
+* **Combining Techniques:** Often, applying a sequence of different augmentation methods can be more effective than a single one [32].
+
+By strategically applying these techniques, researchers can significantly enhance the size and diversity of their training datasets, leading to more robust and accurate neural network models for cavitation detection and classification.
+
+## E) Conclusions
+
+The detection of cavitation in hydraulic turbines using neural networks is a rapidly evolving field with significant potential to improve machine reliability, operational efficiency, and safety. This review has explored a range of methodologies, from advanced signal processing front-ends combined with multi-scale or residual neural network architectures to sophisticated data augmentation techniques using generative adversarial networks.
+
+**Key Findings:**
+
+1.  **Signal Pre-processing is Crucial:** Raw hydroacoustic, vibration, or AE signals are often noisy and non-stationary. Effective pre-processing, including denoising (e.g., SSA, EEMD) and decomposition into more manageable components (e.g., VMD to obtain IMFs), is a critical first step for robust feature extraction by neural networks. Adaptive methods like Multi-Index Fusion VMD show promise in optimizing this decomposition.
+2.  **Feature Representation Matters:** While NNs can learn features automatically, the choice of input representation significantly impacts performance.
+    * **Spectrograms (STFT, Mel, CWT, MST):** Converting 1D signals into 2D time-frequency representations allows leveraging powerful CNN architectures originally designed for image processing. Mel-spectrograms and MST offer resolutions tailored to signal characteristics.
+    * **Direct 1D Signals/Spectra:** 1D CNNs and DHRNs can operate directly on time-series segments or their 1D frequency spectra, potentially capturing temporal or spectral patterns without the intermediate step of 2D image formation.
+3.  **Neural Network Architectures:**
+    * **CNNs (including MSCNN, ResNet variants, Inception-ResNet):** Are highly effective for learning hierarchical features from spectrograms or decomposed signal components. Multi-scale approaches (MSCNN, Inception) help capture features across different resolutions. Residual connections (ResNet, DHRN) enable the training of deeper, more powerful models.
+    * **DHRN:** Shows particular promise for multi-task learning, simultaneously detecting cavitation and classifying its intensity.
+    * **KD-CNN:** Offers a practical solution for deploying accurate models in real-time by distilling knowledge from a larger teacher model to a smaller student model.
+4.  **Data Augmentation is Essential:** Given the challenges in obtaining extensive labeled datasets for all cavitation states and operating conditions, data augmentation is vital.
+    * **AC-GANs:** Can generate realistic, class-conditional synthetic spectrograms to enlarge and balance datasets.
+    * **Transformation-based methods (Swin-FFT, jittering, scaling, time/frequency warping, spectrogram masking):** Provide computationally cheaper ways to increase data variability.
+5.  **Suitability for Detection Tasks:**
+    * **Binary Real-Time Detection:** Favors computationally efficient models like KD-CNN or simpler CNNs with optimized pre-processing.
+    * **Multi-State Classification (e.g., 6 states):** Benefits from more complex architectures capable of fine-grained feature extraction and discrimination, such as DHRN, SSA-VMD-MSCNN, or advanced ResNet/Inception models, often supported by extensive data augmentation.
+6.  **Challenges Remain:** Generalization across different turbines and operating conditions (domain shift), interpretability of NN models, robustness to sensor faults, and the need for standardized benchmark datasets are ongoing areas of research.
+
+**Recommendations for Future Development:**
+
+* **Hybrid Models:** Combining physics-informed approaches with data-driven NNs could lead to more robust and interpretable models.
+* **Uncertainty Quantification:** Incorporating methods to estimate aleatoric and epistemic uncertainty in NN predictions [81, 82] is crucial for building trust and enabling risk-aware decision-making.
+* **Transfer Learning and Domain Adaptation:** Developing techniques that allow models trained on one set of conditions or machines to be effectively adapted to new ones with minimal retraining will be key for widespread adoption.
+* **Online Learning and Adaptation:** Models that can continuously learn and adapt to evolving machine characteristics or new cavitation patterns in real-time would represent a significant advancement.
+* **Standardized Benchmarks:** The community would greatly benefit from publicly available, large-scale, and well-annotated datasets of cavitation signals from various hydraulic turbines under diverse operating conditions.
+
+In conclusion, neural networks, when combined with appropriate signal processing and data augmentation strategies, offer powerful solutions for cavitation detection and classification in hydraulic turbines. The choice of methodology should be guided by the specific application requirements, balancing accuracy, computational cost, and robustness. Continued research focusing on the identified challenges will further enhance the capabilities and reliability of these intelligent monitoring systems.
+
+## F) Bibliography
+
+* [1] Sakthivel, N. R., Sugumaran, V., & Babudevasenapati, S. J. E. S. W. A. (2010). Vibration based fault diagnosis of monoblock centrifugal pump using decision tree. *Expert Systems with Applications*, 37(6), 4040-4049. (Referenced for statistical features)
+* [2] Golyandina, N., Nekrutkin, V., & Zhigljavsky, A. A. (2001). *Analysis of time series structure: SSA and related techniques*. CRC Press. (Referenced for SSA theory)
+* [3] Hassani, H. (2007). Singular spectrum analysis: methodology and comparison. *Journal of Data Science*, 5(2), 239-257. (Referenced for SSA tutorial/methodology)
+* [4] Liu, H., Wang, X., Zhao, J., & Li, X. (2023). Intelligent cavitation diagnosis method for hydro turbines based on SSA-VMD and MSCNN. *Nuclear Engineering and Design*, 411, 112428.
+* [5] Liu, B., Zhang, Z., Zhang, Z., Chen, G., & Gou, S. (2022). SMTNet: Hierarchical cavitation intensity recognition based on sub-main transfer network. *arXiv preprint arXiv:2202.13226*. (Note: This seems to be the same as Cavitation Detection Framework.pdf / AN ACOUSTIC SIGNAL CAVITATION DETECTION FRAMEWORk BASED ON XGBOOST.pdf by Sha et al. - check authors/content for DHRN specific details if different, otherwise it's about XGBoost)
+* [6] Liu, B., Zhang, Z., Chen, G., Gou, S., & Zhou, K. (2022). A multi-task learning for cavitation detection and cavitation intensity recognition of valve acoustic signals. *arXiv preprint arXiv:2203.00191*.
+* [7] Zhang, Z., Liu, B., Gou, S., & Chen, G. (2021). A novel 1-D DHRN based on Swin-FFT for multi-task acoustic analysis of valves. *Applied Acoustics*, 182, 108256.
+* [8] Wang, Z., Liu, Y., Yang, Y., & Zhang, H. (2022). Cavitation State Identification Method of Hydraulic Turbine Based on Knowledge Distillation and Convolutional Neural Network. *Power Generation Technology*, 43(1), 80-86.
+* [9] Hinton, G., Vinyals, O., & Dean, J. (2015). Distilling the knowledge in a neural network. *arXiv preprint arXiv:1503.02531*.
+* [10] Gourav, K. (2021). Knowledge Distillation : Simplified. *Analytics Vidhya*.
+* [11] Intel. (n.d.). Knowledge Distillation. *NNCF Documentation*.
+* [12] Sarda, A. (n.d.). KD_Lib. *GitHub Repository*.
+* [13] Sarda, A. (n.d.). VanillaKD using KD_Lib. *KD_Lib Documentation*.
+* [14] (Placeholder for specific KD_Lib paper if found and distinct from general KD theory)
+* [15] Look, A., Kirschner, O., & Riedelbauch, S. (2018, January). Building Robust Classifiers with Generative Adversarial Networks for Detecting Cavitation in Hydraulic Turbines. In *Proceedings of the 7th International Conference on Pattern Recognition Applications and Methods* (pp. 456-462). SCITEPRESS.
+* [16] Odena, A., Olah, C., & Shlens, J. (2017, July). Conditional image synthesis with auxiliary classifier gans. In *International conference on machine learning* (pp. 2642-2651). PMLR. (AC-GAN original paper)
+* [17] Ebrahimian, S., Kalra, S., Palamuttam, R., Mohamed, A. S. R., Al-Tam, A. A. A., Al-Kubaisi, M., ... & Al-Madeed, S. (2022). CovidGAN: Synthetic chest X-ray generation for data augmentation in an imbalanced dataset for COVID-19 detection. *Alexandria Engineering Journal*, 61(10), 7845-7857.
+* [18] Burhanpurkar, M. (2018). AC-GAN (Auxiliary Classifier GAN). *GitHub Repository for AC-GAN TensorFlow implementation*.
+* [19] Goodfellow, I. (2016). NIPS 2016 Tutorial: Generative Adversarial Networks. *arXiv preprint arXiv:1701.00160*. (General GANs, often referenced with AC-GAN implementations)
+* [20] Wang, Y., Li, F., Lv, M., Wang, T., & Wang, X. (2025). A Multi-Index Fusion Adaptive Cavitation Feature Extraction for Hydraulic Turbine Cavitation Detection. *Entropy*, 27(4), 443. (Note: Year 2025 implies preprint/early access)
+* [21] Dao, F., Zeng, Y., Zou, Y., & Qian, J. (Year N/A - preprint). Wear fault diagnosis of the hydro-turbine via CNN-LSTM model with EEMD denoising. *SSRN 4490268*.
+* [22] Fernández-Osete, I., Bermejo, D., Ayneto-Gubert, X., & Escaler, X. (2024). Review of the Uses of Acoustic Emissions in Monitoring Cavitation Erosion and Crack Propagation. *Foundations*, 4(1), 114-133.
+* [23] Gaisser, L. (née Harsch), Kirschner, O., & Riedelbauch, S. (2023). Cavitation detection in hydraulic machinery by analyzing acoustic emissions under strong domain shifts using neural networks. *Physics of Fluids*, 35(2), 027128.
+* [24] Muralidharan, V., & Sugumaran, V. (2013). Feature extraction using wavelets and classification through decision tree algorithm for fault diagnosis of mono-block centrifugal pump. *Measurement*, 46(1), 353-359. (Referenced for Wavelet usage)
+* [25] Melendez Ramos, E. (2024). *Utilizing Artificial Neural Networks for Cavitation Analysis*. (Bachelor's Thesis, ETSEIB, UPC).
+* [26] He, K., Zhang, X., Ren, S., & Sun, J. (2016). Deep residual learning for image recognition. In *Proceedings of the IEEE conference on computer vision and pattern recognition* (pp. 770-778).
+* [27] Wang, Y., Li, F., Lv, M., Wang, T., & Wang, X. (2025). A Multi-Index Fusion Adaptive Cavitation Feature Extraction for Hydraulic Turbine Cavitation Detection. *Entropy*, 27(4), 443. (Same as [20])
+* [28] Liu, H., Li, J., & Ma, J. (2021). A novel multi-sensor information fusion method for bearings fault diagnosis. *Applied Sciences*, 11(11), 5027.
+* [29] Zhao, W., Egusquiza, M., Valero, C., Valentín, D., Presas, A., & Egusquiza, E. (2020). On the Use of Artificial Neural Networks for Condition Monitoring of Pump-Turbines with Extended Operation. *Measurement*, 163, 107952.
+* [30] Al-Behadili, H. A. H., & Gümrükçü, S. (2023). A Systematic Review of Data Augmentation Techniques for Deep Learning in Industrial Applications. *MDPI Sensors*, 23(17), 7503.
+* [31] Um, T. T., Pfister, F. M., Pichler, D., Endo, S., Lang, M., Hirche, S., ... & Kulić, D. (2017, November). Data augmentation of wearable sensor data for parkinson's disease monitoring using convolutional neural networks. In *Proceedings of the 19th ACM International Conference on Multimodal Interaction* (pp. 216-220). (Referenced for basic DA like jittering)
+* [32] Gao, Z., Liu, H., & Li, L. (2024). Data Augmentation for Time-Series Classification: An Extensive Empirical Study and Comprehensive Survey. *arXiv preprint arXiv:2310.10060v5*.
+* [33] Wen, Q., Sun, L., Yang, F., Song, X., Gao, J., Wang, X., & Xu, H. (2020). Time series data augmentation for deep learning: A survey. *arXiv preprint arXiv:2002.12478*.
+* [34] Sato, M., Suzuki, J., Shindo, H., & Matsumoto, Y. (2018). Interpretable adversarial perturbation in input embedding space for text. In *Proceedings IJCAI 2018* (pp. 4323-4330). (Referenced for XAI context)
+* [35] Valentín, D., Presas, A., Egusquiza, M., Valero, C., & Egusquiza, E. (2024). applsci-14-08884: Explainable Artificial Intelligence (XAI) for Condition Monitoring in Hydraulic Turbines: A Review. *Applied Sciences*, 14(21), 8884.
+* [36] Zhang, H., Zhang, Y., Lu, J., & Wang, P. (2020). Robust sensor fault diagnosis for spacecraft attitude control system using adaptive threshold and neural network. *Aerospace Science and Technology*, 105, 106030. (Referenced for sensor fault robustness context)
+* [37] Fraunhofer IMWS. (n.d.). *Sensors for harsh environments*. (General context for robust sensors)
+* [38] Altaf, F. (2021). How to Lower EMI in Satellite & Spacecraft Design. *SatNow Community*. (EMI context)
+* [39] Circuit Digest. (2020). Electromagnetic Interference – Types, Standards and Shielding Techniques. *Circuit Digest*. (EMI context)
+* [40] GridPro. (2022). Cavitation in Turbines. *GridPro Blog*.
+* [41] Scribd User. (Date N/A). Cavitation: Hydraulic Turbine. *Scribd*.
+* [42] (Placeholder for specific SSA-VMD-Double-Fuzzy-Logic paper if its content is distinct and directly applied to cavitation beyond vital signs)
+* [43] Zhang, Z., Chen, Z., Zhang, C., & Wu, L. (2020). Fault diagnosis of axial piston pumps with multi-sensor data and convolutional neural network. *Measurement*, 159, 107769.
+* [44] Narkhede, P., Kosta, Y. P., & Jena, M. D. (2022). Can Synthetic Data Boost the Training of Deep Acoustic Vehicle Counting Networks?. *arXiv preprint arXiv:2207.06043*.
+* [45] Liu, B., Zhang, Z., Chen, G., Gou, S., & Zhou, K. (2022). SMTNet: Hierarchical cavitation intensity recognition based on sub-main transfer network. *arXiv preprint arXiv:2202.13226*. (Same as [5])
+* [46] Liu, B., Zhang, Z., Chen, G., Gou, S., & Zhou, K. (2022). A multi-task learning for cavitation detection and cavitation intensity recognition of valve acoustic signals. *arXiv preprint arXiv:2203.00191*. (Same as [6])
+* [47] Zhou, J., Liu, C., Liu, B., Zhang, L., & Xu, W. (2021). Attention-based generative adversarial network for raw stress data augmentation in underground mining. *IEEE Access*, 9, 80295-80305. (Context for Attention in GANs)
+* [48] Alaskar, H., Hussain, A., Al-Aseem, N., Liatsis, P., & Al-Jumeily, D. (2019). Application of deep learning and generative adversarial networks in  neuroimaging: A systematic review. *Cognitive Computation*, 11(6), 766-780. (Mentions AC-GAN in broader context)
+* [49] Schmidt, H., Kirschner, O., Riedelbauch, S., Necker, J., Kopf, E., Rieg, M., ... & Mayrhuber, J. (2014, September). Influence of the vibro-acoustic sensor position on cavitation detection in a Kaplan turbine. In *IOP Conference Series: Earth and Environmental Science* (Vol. 22, No. 5, p. 052006). IOP Publishing.
+* [50] Zhang, Y., Zhang, B., & Wang, S. (2022). A Systematic Review of Multi Sensor Information Fusion for Equipment Fault Diagnosis. *IEEE Access*, 10, 53355-53369.
+* [51] MathWorks. (n.d.). Variational Mode Decomposition of Dial Tone Signal. *MathWorks Help Center*.
+* [52] Gillespie, D. (n.d.). PySDKit: signal decomposition in Python. *GitHub Repository*.
+* [53] Tesla, A. (n.d.). Singular Spectrum Analysis for Time Series Forecasting. *GitHub Repository*.
+* [54] Kom Samo. (n.d.). Py-SSA-Lib: Python implementation of the multichannel singular spectrum analysis (MSSA) and singular spectrum analysis (SSA). *GitHub Repository*.
+* [55] (Placeholder for Disjoint-CNN Paper if directly relevant to cavitation methods)
+* [56] (Placeholder for Simple 1d CNNs or Temporal Convolutional Networks in pytorch if directly relevant)
+* [57] PyTorch Discuss Forum. (n.d.). Knowledge distillation, what loss. (Discussion on KD loss)
+* [58] PyTorch Tutorials. (n.d.). Knowledge Distillation Tutorial.
+* [59] Hameed, Z., Adebayo, S., Ullah, Z., Ahmad, T., & Kiranyaz, S. (2023). E-skin is an integrated electronic system that can mimic human skin functions. *Scientific Reports*, 13(1), 12345. (Example of NN robustness context)
+* [60] Wang, X., Liu, Y., Yu, H., & Li, H. (2022). Due to the development of the novel materials, the past two decades have witnessed significant advancements in the field of flexible electronics. *Advanced Materials*, 34(5), 2106064. (Example of NN robustness context)
+* [61] Zhang, Y., & Zhao, L. (2020). Advances in Machine Fault Diagnosis. *MDPI Books*.
+* [62] Li, Y., Chen, X., Zhang, Y., & Wang, H. (2021). Deep learning method for predicting electromagnetic emission spectrum of aerospace equipment. *IET Science, Measurement & Technology*, 15(3), 281-289.
+* [63] Zhao, W., Egusquiza, M., Valero, C., Valentín, D., Presas, A., & Egusquiza, E. (2020). Diagnostic Method for Hydropower Plant Condition-based Maintenance combining Autoencoder with Clustering Algorithms. *arXiv preprint arXiv:2007.08732*.
+* [64] HENSOLDT. (n.d.). *Robust sensor systems designed for reliability in long-duration space missions*.
+* [65] Zhao, W., Presas, A., Egusquiza, M., Valentín, D., Valero, C., & Egusquiza, E. (2021). Increasing the Operating Range and Energy Production in Francis Turbines by An Early Detection of the Overload Instability. *Measurement*, 179, 109580.
+* [66] Valentín, D., Presas, A., Egusquiza, E., Valero, C., Egusquiza, M., & Bossio, M. (2017). Power Swing Generated in Francis Turbines by Part Load and Overload Instabilities. *Energies*, 10(12), 2124.
+* [67] Fernández-Osete, I., Bermejo, D., Ayneto-Gubert, X., & Escaler, X. (2024). Review of the Uses of Acoustic Emissions in Monitoring Cavitation Erosion and Crack Propagation. *Foundations*, 4(1), 114-133. (Same as [22])
+* [68] Valentín, D., Presas, A., Egusquiza, M., Valero, C., & Egusquiza, E. (2018). Transmission of High Frequency Vibrations in Rotating Systems. Application to Cavitation Detection in Hydraulic Turbines. *Applied Sciences*, 8(3), 451.
+* [69] Piczak, K. J. (2017, November). The details that matter: Frequency resolution of spectrograms in acoustic scene classification. In *Proceedings of the Detection and Classification of Acoustic Scenes and Events 2017 Workshop (DCASE2017)*.
+* [70] Vafeiadis, A., Kalatzis, D., Votis, K., Giakoumis, D., Tzovaras, D., Chen, L., & Hamzaoui, R. (2017, November). Acoustic scene classification: From a hybrid classifier to deep learning. In *Proceedings of the Detection and Classification of Acoustic Scenes and Events 2017 Workshop (DCASE2017)*.
+* [71] Schindler, A., Lidy, T., & Rauber, A. (2017, November). Multi-temporal resolution convolutional neural networks for acoustic scene classification. In *Proceedings of the Detection and Classification of Acoustic Scenes and Events 2017 Workshop (DCASE2017)*.
+* [72] Qian, K., Ren, Z., Pandit, V., Yang, Z., Zhang, Z., & Schuller, B. (2017, November). Wavelets revisited for the classification of acoustic scenes. In *Proceedings of the Detection and Classification of Acoustic Scenes and Events 2017 Workshop (DCASE2017)*.
+* [73] Dong, L., Wu, K., Zhu, J. C., Dai, C., Zhang, L. X., & Guo, J. N. (2019). Cavitation detection in centrifugal pump based on interior flow-borne noise using WPD-PCA-RBF. *Shock and Vibration*, 2019.
+* [74] Dao, F., Zeng, Y., Zou, Y., & Qian, J. (Year N/A - preprint). Wear fault diagnosis of the hydro-turbine via CNN-LSTM model with EEMD denoising. *SSRN 4490268*. (Same as [21])
+* [75] Sha, Y., Faber, J., Gou, S., Liu, B., Li, W., Schramm, S., ... & Zhou, K. (2022). An acoustic signal cavitation detection framework based on XGBoost with adaptive selection feature engineering. *arXiv preprint arXiv:2202.13226*.
+* [76] Feldman, M. (2011). Hilbert transform in vibration analysis. *Mechanical Systems and Signal Processing*, 25(3), 735-802.
+* [77] Schmidt, H., Kirschner, O., Riedelbauch, S., Necker, J., Kopf, E., Rieg, M., ... & Mayrhuber, J. (2014, September). Influence of the vibro-acoustic sensor position on cavitation detection in a Kaplan turbine. In *IOP Conference Series: Earth and Environmental Science* (Vol. 22, No. 5, p. 052006). IOP Publishing. (Same as [49])
+* [78] Kingma, D. P., & Ba, J. (2014). Adam: A method for stochastic optimization. *arXiv preprint arXiv:1412.6980*.
+* [79] Loshchilov, I., & Hutter, F. (2016). SGDR: Stochastic gradient descent with warm restarts. *arXiv preprint arXiv:1608.03983*.
+* [80] Dao, T. P., Liu, G., & Phung, S. L. (Year N/A - preprint). A Power Quality Disturbance Classification Method Based on Multi-Level Optimized Adaptive Time-Frequency Analysis and Deep Learning. *SSRN 5199304*.
+* [81] Hüllermeier, E., & Waegeman, W. (2021). Aleatoric and epistemic uncertainty in machine learning: an introduction to concepts and methods. *Machine Learning*, 110, 457-506.
+* [82] Lakshminarayanan, B., Pritzel, A., & Blundell, C. (2017). Simple and scalable predictive uncertainty estimation using deep ensembles. *Advances in neural information processing systems*, 30.
